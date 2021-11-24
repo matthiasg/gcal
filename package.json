@@ -1,0 +1,27 @@
+{
+  "name": "gcal",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/matthiasg/gcal.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/matthiasg/gcal/issues"
+  },
+  "homepage": "https://github.com/matthiasg/gcal#readme",
+  "dependencies": {
+    "@node-cli-toolkit/oauth-cli": "^1.0.2",
+    "fetch": "^1.1.0",
+    "monthly": "^0.6.7",
+    "node-fetch": "^3.1.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
