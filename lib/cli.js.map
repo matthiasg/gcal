@@ -1,0 +1,7 @@
+{
+  "version": 3,
+  "sources": ["../src/cli.js"],
+  "sourcesContent": ["console.log('TEST')"],
+  "mappings": ";;AAAA,UAAQ,IAAI;",
+  "names": []
+}

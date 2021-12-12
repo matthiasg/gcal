@@ -1,10 +1,18 @@
 {
-  "name": "gcal",
+  "name": "epaper-calendar",
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
   "type": "module",
+  "bin": {
+    "render-calendar": "./bin/render-calendar-to-e-paper.js"
+  },
   "scripts": {
+    "build": "npm run build:cli",
+    "build:watch": "npm run build:cli:watch",
+    "build:cli": "esbuild --bundle --outfile=lib/cli.js --sourcemap src/cli.js",
+    "build:cli:watch": "esbuild --bundle --outfile=lib/cli.js --sourcemap src/cli.js --watch",
+    "dev:watch": "nodemon -w lib --exec \"node bin/render-calendar-to-e-paper.js\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,9 +27,13 @@
   "homepage": "https://github.com/matthiasg/gcal#readme",
   "dependencies": {
     "@node-cli-toolkit/oauth-cli": "^1.0.2",
+    "esbuild": "^0.14.2",
     "fetch": "^1.1.0",
+    "fontkit": "^1.8.1",
     "monthly": "^0.6.7",
     "node-fetch": "^3.1.0",
-    "qrcode-terminal": "^0.12.0"
+    "nodemon": "^2.0.15",
+    "qrcode-terminal": "^0.12.0",
+    "yargs": "^17.3.0"
   }
 }
