@@ -110,3 +110,6 @@ api-secrets.js
 config-secrets.js
 
 secret-test-options.json
+
+# lib
+lib
