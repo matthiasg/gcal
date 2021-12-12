@@ -10,8 +10,8 @@
   "scripts": {
     "build": "npm run build:cli",
     "build:watch": "npm run build:cli:watch",
-    "build:cli": "esbuild --bundle --outfile=lib/cli.js --sourcemap src/cli.js",
-    "build:cli:watch": "esbuild --bundle --outfile=lib/cli.js --sourcemap src/cli.js --watch",
+    "build:cli": "esbuild --bundle --target=node16 --format=esm --outfile=lib/cli.js --platform=node --sourcemap src/cli.js",
+    "build:cli:watch": "esbuild --bundle --target=node16 --format=esm --outfile=lib/cli.js --platform=node --sourcemap src/cli.js --watch",
     "dev:watch": "nodemon -w lib --exec \"node bin/render-calendar-to-e-paper.js\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },

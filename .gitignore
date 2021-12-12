@@ -108,3 +108,5 @@ dist
 api-keys.md
 api-secrets.js
 config-secrets.js
+
+secret-test-options.json
