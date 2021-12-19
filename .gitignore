@@ -110,6 +110,9 @@ api-secrets.js
 config-secrets.js
 
 secret-test-options.json
+weather-report.json
+events.json
 
 # lib
 lib
+

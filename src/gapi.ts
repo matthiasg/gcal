@@ -1,8 +1,18 @@
-import fs from 'fs/promises'
+import path from 'node:path'
+import fs from 'node:fs/promises'
 import fetch from 'node-fetch'
 import qr from 'qrcode-terminal'
 
+import log from './log.js'
+
 export class GApi {
+  private urlPrefix: string
+  private scope: any
+  private client_id: any
+  private client_secret: any
+  private token: any
+  private tokenPath: string
+  
   constructor({ urlPrefix, scope, client_id, client_secret, tokenPath = 'data/token.json' }) {
     this.urlPrefix = urlPrefix
     this.scope = scope
@@ -12,10 +22,11 @@ export class GApi {
     this.tokenPath = tokenPath
   }
 
-  async request(designatedUrl = '', options = {}) {
+  async request(designatedUrl = '', options: any = {}) {
     const url = designatedUrl.startsWith('http') ? designatedUrl : this.urlPrefix + designatedUrl
 
     if (!this.token) {
+      log.trace('No active token yet')
       this.token = await this.getToken()
     }
 
@@ -34,13 +45,13 @@ export class GApi {
       }
       
       if (response.status === 401) {
-        const error = await response.json()
+        const error: any = await response.json()
 
         if (error?.error === 'invalid_token') {
           console.warn('Token invalid', error?.error_description)
         } else {
           console.error('Unknown Access Error', error)
-          throw new Error('Unknown access error')
+          // throw new Error('Unknown access error')
         }
 
         await this._refreshToken()
@@ -53,7 +64,7 @@ export class GApi {
   }
 
   async _refreshToken() {
-    console.log('refreshing token')
+    log.trace('refreshing token')
     const refreshTokenResponse = await fetch(`https://oauth2.googleapis.com/token?client_id=${this.client_id}&client_secret=${this.client_secret}&grant_type=refresh_token&refresh_token=${this.token.refresh_token}`, { method: 'POST' }) 
     
     if (refreshTokenResponse.ok) {
@@ -76,14 +87,18 @@ export class GApi {
   async getToken() {
     try {
       const content = await fs.readFile(this.tokenPath, 'utf8')
+      log.trace({ token: content }, 'Read token from %s', this.tokenPath)
+      
       const token = JSON.parse(content)
       return token
     } catch (error) {
+      log.info('Error read token from %s', this.tokenPath)
+
       const initialTokenPrompt = await fetch(`https://oauth2.googleapis.com/device/code?client_id=${this.client_id}&scope=${this.scope}`, {
         method: 'POST',
       })
   
-      const tokenPromptInfo = await initialTokenPrompt.json()
+      const tokenPromptInfo: any = await initialTokenPrompt.json()
       
       qr.generate(tokenPromptInfo.verification_url)
   
@@ -97,9 +112,13 @@ export class GApi {
         })
   
         if (tokenResponse.ok) {
-          const token = await tokenResponse.json()
+          const token = await tokenResponse.json() 
   
           const tokenAsString = JSON.stringify(token, null, 2)
+
+          const tokenDirectory = path.dirname(this.tokenPath)
+
+          await fs.mkdir(tokenDirectory, { recursive: true })
           await fs.writeFile(this.tokenPath, tokenAsString, 'utf8')
           return token
         } else if (tokenResponse.status === 403) {
@@ -115,4 +134,4 @@ export class GApi {
   }
 }
 
-function sleep(ms) { return new Promise((resolve) => setTimeout(resolve, ms))}
+function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms))}
