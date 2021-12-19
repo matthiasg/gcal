@@ -1,5 +1,5 @@
 import fs from 'node:fs/promises'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, createReadStream } from 'node:fs'
 import path from 'node:path'
 
 import Jimp from 'jimp'
@@ -13,7 +13,7 @@ Settings.defaultLocale = 'de'
 const DATA_PATH = path.resolve('data')
 
 async function loadFont(fontFileName: string, name: string) {
-  const font = PureImage.registerFont(path.join(DATA_PATH, fontFileName), name, null, null, null)
+  const font = PureImage.registerFont(path.join(DATA_PATH, 'fonts', fontFileName), name, null, null, null)
   await callbackResolve(cb => font.load(cb))
 }
 
@@ -62,8 +62,8 @@ export async function renderEventsToImage({ width, height, weather, events }: { 
 
   console.log(day)
 
-  yPosition = renderHeadline({ yPosition, today, day, ctx, ctxRed, weather, LEFT_MARGIN, RIGHT_MARGIN })
-  yPosition = renderWeatherAlert({ yPosition, weather, ctx, ctxRed, LEFT_MARGIN, RIGHT_MARGIN })
+  yPosition = await renderHeadline({ yPosition, today, day, ctx, ctxRed, weather, LEFT_MARGIN, RIGHT_MARGIN })
+  yPosition = await renderWeatherAlert({ yPosition, weather, ctx, ctxRed, LEFT_MARGIN, RIGHT_MARGIN })
 
   yPosition += SECTION_GAP
 
@@ -182,7 +182,7 @@ function readEvents(events: Event[], interval: Interval): Event[] {
   return eventsInRange
 }
 
-function renderWeatherAlert({ ctx, ctxRed, yPosition, LEFT_MARGIN, RIGHT_MARGIN, weather }) {
+async function renderWeatherAlert({ ctx, ctxRed, yPosition, LEFT_MARGIN, RIGHT_MARGIN, weather }) {
   if (!weather.alerts) {
     return yPosition
   }
@@ -253,7 +253,7 @@ function isAllUppercase(event: string) {
   return event.toLocaleUpperCase() === event
 }
 
-function renderHeadline({ ctx, ctxRed, today, day, yPosition, LEFT_MARGIN, RIGHT_MARGIN, weather }) {
+async function renderHeadline({ ctx, ctxRed, today, day, yPosition, LEFT_MARGIN, RIGHT_MARGIN, weather }) {
   ctx.font = "38pt 'SourceSans'"
   const { width: headerWidth } = ctx.measureText(day)
 
@@ -270,6 +270,8 @@ function renderHeadline({ ctx, ctxRed, today, day, yPosition, LEFT_MARGIN, RIGHT
   const { width: topRightWidth } = ctx.measureText(temperatur)
   ctx.font = "30pt 'SourceSans'"
   ctx.fillText(temperatur, RIGHT_MARGIN - topRightWidth, yPosition)
+
+  // await renderWeatherIcon({ ctx, iconName: '01d.png', xPosition: RIGHT_MARGIN - topRightWidth - 128 - 16, yPosition: 0, width: 38, height: 38 })
 
   yPosition = 42
 
@@ -317,4 +319,11 @@ function callbackResolve(functionToInjectCallbackInto: any) {
   return new Promise(resolve => {
     functionToInjectCallbackInto(resolve)
   })
+}
+
+async function renderWeatherIcon({ ctx, iconName, xPosition, yPosition, width, height }) {
+  const iconPath = path.join(DATA_PATH, 'openweathermap', 'icons', iconName)
+ 
+  const icon = await PureImage.decodePNGFromStream(createReadStream(iconPath))
+  ctx.drawImage(icon, xPosition, yPosition, width, height)
 }

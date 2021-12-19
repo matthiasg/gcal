@@ -116,3 +116,5 @@ events.json
 # lib
 lib
 
+# Apple
+.DS_Store
