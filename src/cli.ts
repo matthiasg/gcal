@@ -7,6 +7,7 @@ import yargs from 'yargs'
 import { readCalendar } from './read-calendar.js'
 import { renderEventsToImage } from './render-calendar.js'
 import { readWeather } from './read-weather.js'
+import { readBatteryLevel } from './read-battery.js'
 
 const DEFAULT_TOKEN_PATH = path.join(os.homedir(), '.calendar-e-paper', 'access-token.json')
 
@@ -24,12 +25,12 @@ const args = yargs(process.argv.slice(2))
   })
   .option('width', {
     type: 'number',
-    default: 600,
+    default: 640,
     description: 'The width to render the image to. If the render target is configured to an actual display this needs to match the driver'
   })
   .option('height', {
     type: 'number',
-    default: 800,
+    default: 960,
     description: 'The height to render the image to. If the render target is configured to an actual display this needs to match the driver'
   })
   .option('tokenPath', {
@@ -57,16 +58,32 @@ const args = yargs(process.argv.slice(2))
     type: 'string',
     default: 'en'
   })
+  .option('afterRun', {
+    description: 'Command to execute when done (e.g poweroff)',
+    type: 'string'
+  })
+  .option('afterRunDelay', {
+    description: 'Number of seconds to wait after done to run the afterRun command',
+    type: 'number',
+    default: 30
+  })
+  .option('afterRunCondition', {
+    description: 'File '
+  })
   .argv
 
-// const events = await readCalendar(args)
-// await fs.writeFile('events.json', JSON.stringify(events, null, 2), { encoding: 'utf8' })
-const events = JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
+const events = await readCalendar(args)
+await fs.writeFile('events.json', JSON.stringify(events, null, 2), { encoding: 'utf8' })
+// const events = JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
 
 const weather = await readWeather({ apiKey: args.openWeatherApiKey, language: args.language, longitude: args.longitude, latitude: args.latitude })
-// await fs.writeFile('weather-report.json', JSON.stringify(weather, null, 2), { encoding: 'utf8' })
+await fs.writeFile('weather-report.json', JSON.stringify(weather, null, 2), { encoding: 'utf8' })
 // const weather = JSON.parse(await fs.readFile('weather-report.json', { encoding: 'utf-8' }))
-const { imageBlack, imageRed } = await renderEventsToImage({ width: args.width, height: args.height, events, weather })
+
+//const batteryLevel = await readBatteryLevel()
+const batteryLevel = null;
+
+const { imageBlack, imageRed } = await renderEventsToImage({ width: args.width, height: args.height, events, weather, batteryLevel })
 
 imageBlack.write('channel-black.png')
 imageRed.write('channel-red.png')

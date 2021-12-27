@@ -17,7 +17,7 @@ async function loadFont(fontFileName: string, name: string) {
   await callbackResolve(cb => font.load(cb))
 }
 
-export async function renderEventsToImage({ width, height, weather, events }: { width: number, height: number, weather: any, events: any[] }) {
+export async function renderEventsToImage({ width, height, weather, events, batteryLevel }: { width: number, height: number, weather: any, batteryLevel: number, events: any[] }) {
   await loadFont('SourceSans3-Bold.ttf', 'SourceSans')
   await loadFont('SourceSans3-Regular.ttf', 'SourceSansRegular')
   await loadFont('SourceSans3-Light.ttf', 'SourceSansLight')
@@ -25,7 +25,7 @@ export async function renderEventsToImage({ width, height, weather, events }: { 
   // await callbackResolve(cb => font.load(cb))
 
   const LEFT_MARGIN = 20
-  const RIGHT_MARGIN = width - 20
+  const RIGHT_MARGIN = width - 2 * LEFT_MARGIN
   const SECTION_GAP = 12
   const HEADER_GAP = 8
 
@@ -40,8 +40,9 @@ export async function renderEventsToImage({ width, height, weather, events }: { 
   const tomorrow = today.plus(Duration.fromObject({ day: 1 }))
   const todayInterval = Interval.fromDateTimes(today, tomorrow.minus({ milliseconds: 1 }))
   const tomorrowInterval = Interval.fromDateTimes(tomorrow, tomorrow.plus({ days: 1 }).minus({ milliseconds: 1 }))
+  const dayAfterTomorrowUntil14DaysInterval = Interval.fromDateTimes(tomorrow.plus({ days: 1 }).minus({ milliseconds: 1 }), tomorrow.plus({ days: 14 }).minus({ milliseconds: 1 }))
 
-  const day = tomorrow.toLocaleString({ month: 'short', day: 'numeric' })
+  const day = today.toLocaleString({ weekday: 'short', month: 'short', day: 'numeric'  })
 
   const ctx = image.getContext('2d')
   const ctxRed = imageRed.getContext('2d')
@@ -68,21 +69,89 @@ export async function renderEventsToImage({ width, height, weather, events }: { 
   yPosition += SECTION_GAP
 
   const todaysEvents = readEvents(events, todayInterval)
-  yPosition = renderDay({ title: 'Heute', events: todaysEvents, context: ctx, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP })
+  yPosition = renderMultiDayEvents({ events: todaysEvents, context: ctx, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP })
+  yPosition += SECTION_GAP
+  yPosition = renderEvents({ title: 'Heute', events: todaysEvents, context: ctx, contextSecond: ctxRed, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP, width, height })
 
   yPosition += SECTION_GAP
 
   const tomorrowsEvents = readEvents(events, tomorrowInterval)
-  yPosition = renderDay({ title: 'Morgen', events: tomorrowsEvents, context: ctx, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP })
+  yPosition = renderEvents({ title: 'Morgen', events: tomorrowsEvents, context: ctx, contextSecond: ctxRed, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP, width, height })
+
+  const remainder = readEvents(events, dayAfterTomorrowUntil14DaysInterval)
+  yPosition = renderEvents({ title: 'Weitere', includeDate: true, events: remainder, context: ctx, contextSecond: ctxRed, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP, width, height })
+  
+  await renderBatteryLevel({ batteryLevel, context: ctxRed, LEFT_MARGIN, RIGHT_MARGIN, height })
 
   return exportAsChannels(image, imageRed)
 }
 
-function renderDay({ title, events, context, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP }) {
+function isMultiDayEvent(event: any) {
+  if (!('date' in event.start) || !('date' in event.end)) {
+    return false
+  }
+
+  const start = event.start.date ? DateTime.fromISO(event.start.date) : null
+  const end = event.end.date ? DateTime.fromISO(event.end.date) : null
+
+  const intervalOfEvent = Interval.fromDateTimes(start, end)
+  
+  if (intervalOfEvent.length('days') <= 1) {
+    return false
+  }
+
+  return true
+}
+
+function renderMultiDayEvents({ events, context, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP }) {
   if (events.length === 0) {
     return yPosition
   }
 
+  for (const event of events) {
+    if (!('date' in event.start) || !('date' in event.end)) {
+      continue
+    }
+
+    const start = event.start.date ? DateTime.fromISO(event.start.date) : null
+    const end = event.end.date ? DateTime.fromISO(event.end.date) : null
+
+    const intervalOfEvent = Interval.fromDateTimes(start, end)
+    
+    if (intervalOfEvent.length('days') <= 1) {
+      continue
+    }
+
+    alreadyRendered.add(event)
+
+    yPosition = renderTextLines({
+      context: context,
+      text: event.summary + ' bis ' + end.toLocaleString(DateTime.DATE_MED),
+      xPosition: LEFT_MARGIN,
+      yPosition,
+      fontSize: 16,
+      maxWidth: RIGHT_MARGIN - LEFT_MARGIN,
+      fontFamily: 'SourceSansLight',
+    })
+
+    if (event.location && event.location.trim() !== '') {
+      yPosition += 2
+      yPosition = renderTextLines({
+        context: context,
+        text: event.location,
+        xPosition: LEFT_MARGIN,
+        yPosition,
+        fontSize: 18,
+        maxWidth: RIGHT_MARGIN - LEFT_MARGIN,
+        fontFamily: 'SourceSansLight',
+      })
+    }
+  }
+
+  return yPosition
+}
+
+function renderSectionTitle({ title, context, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP }) {
   yPosition = renderTextLines({
     context,
     text: title,
@@ -95,45 +164,95 @@ function renderDay({ title, events, context, yPosition, LEFT_MARGIN, RIGHT_MARGI
   
   yPosition += HEADER_GAP
 
+  return yPosition
+}
+
+const alreadyRendered = new Set()
+
+function renderEvents({ title, includeDate = false, width, height, events, context, contextSecond, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP }) {
+  if (events.length === 0) {
+    return yPosition
+  }
+
+  let headerRendered = false
+
   for (const event of events) {
-    const time = event.start.dateTime ? DateTime.fromISO(event.start.dateTime) : null
+    if (alreadyRendered.has(event)) { 
+      continue
+    }
 
-    const timeText = time ? `${time.toLocaleString(DateTime.TIME_SIMPLE)}  ` : ''
-    const { width: timeMinWidth } = context.measureText(timeText)
-    const timeWidth = 50 // Math.min(timeMinWidth, 200) + 10
+    alreadyRendered.add(event)
 
-    renderTextLines({
-      context: context,
-      text: timeText,
-      xPosition: LEFT_MARGIN,
-      yPosition,
-      fontSize: 16,
-      lineHeight: 20,
-      maxWidth: timeWidth,
-      fontFamily: 'SourceSans',
-    })
+    if (!headerRendered) {
+      yPosition = renderSectionTitle({ title, context, yPosition, LEFT_MARGIN, RIGHT_MARGIN, HEADER_GAP })
+      headerRendered = true
+    }
+
+    let offset = includeDate ? 100 : 50 // Math.min(timeMinWidth, 200) + 10
+    
+    const startDateTime = event.start.dateTime ? DateTime.fromISO(event.start.dateTime) : null
+    let   prefixText = startDateTime ? `${startDateTime.toLocaleString(DateTime.TIME_SIMPLE)}  ` : ''
+
+    if (includeDate && startDateTime) {
+      const dateText = startDateTime.toLocaleString(DateTime.DATE_MED)
+      prefixText = `${dateText}\n${prefixText}`
+    } else if (includeDate) {
+      const startDate = event.start.date ? DateTime.fromISO(event.start.date) : null
+      const endDate = event.end.date ? DateTime.fromISO(event.end.date).plus({ milliseconds: -1 }) : null
+
+      if (startDate && endDate) {
+        const startText = startDate.toLocaleString(DateTime.DATE_MED)
+        const endText = endDate.toLocaleString(DateTime.DATE_MED)
+
+        if (startText === endText) {
+          prefixText = startText
+        } else {
+          prefixText = `${startText}\n${endText}`
+        }
+      }
+    }
+
+    let prefixYPosition = yPosition
+
+    if (prefixText.length > 0) {
+      // const { width: timeMinWidth } = context.measureText(timeText)
+
+      prefixYPosition = renderTextLines({
+        context: context,
+        text: prefixText,
+        xPosition: LEFT_MARGIN,
+        yPosition,
+        fontSize: 16,
+        lineHeight: 20,
+        maxWidth: offset,
+        fontFamily: 'SourceSans',
+      })
+    }
 
     yPosition = renderTextLines({
       context: context,
       text: event.summary,
-      xPosition: LEFT_MARGIN + timeWidth,
+      xPosition: LEFT_MARGIN + offset,
       yPosition,
       fontSize: 20,
-      maxWidth: RIGHT_MARGIN - (LEFT_MARGIN + timeWidth),
+      maxWidth: RIGHT_MARGIN - (LEFT_MARGIN + offset),
       fontFamily: 'SourceSansLight',
     })
+
+    yPosition = Math.max(yPosition, prefixYPosition)
 
     if (event.location && event.location.trim() !== '') {
       yPosition += 2
       yPosition = renderTextLines({
-        context: context,
+        context: contextSecond,
         text: event.location,
-        xPosition: LEFT_MARGIN + timeWidth,
+        xPosition: LEFT_MARGIN + offset,
         yPosition,
         fontSize: 18,
-        maxWidth: RIGHT_MARGIN - (LEFT_MARGIN + timeWidth),
+        maxWidth: RIGHT_MARGIN - (LEFT_MARGIN + offset),
         fontFamily: 'SourceSansLight',
       })
+      yPosition += 12
     }
   }
 
@@ -206,10 +325,26 @@ async function renderWeatherAlert({ ctx, ctxRed, yPosition, LEFT_MARGIN, RIGHT_M
   return yPosition
 }
 
+async function renderBatteryLevel({ batteryLevel, context, LEFT_MARGIN, RIGHT_MARGIN, height }) {
+  if (batteryLevel == null) {
+    return
+  }
+
+  renderTextLines({
+    context,
+    text: 'Batterie: ' + batteryLevel.toString() + '%',
+    xPosition: LEFT_MARGIN,
+    yPosition: height - 25,
+    fontSize: 18,
+    maxWidth: RIGHT_MARGIN - LEFT_MARGIN,
+    fontFamily: 'SourceSansLight',
+  })
+}
+
 function renderTextLines({ context, text, lineHeight, yPosition, fontSize, fontFamily, xPosition, maxWidth, gap = 0 }: { context: any, text: string, lineHeight?: number, fontSize: number, xPosition: number, yPosition: number, fontFamily: string, maxWidth: number, gap?: number }) {
   lineHeight = lineHeight ?? fontSize
 
-  const lines = linefold(text, maxWidth * 1.5, (text: string) => {
+  const lines = linefold(text, maxWidth * 2, (text: string) => {
     const { width: textWidth } = context.measureText(text)
     return textWidth
   })
@@ -222,7 +357,6 @@ function renderTextLines({ context, text, lineHeight, yPosition, fontSize, fontF
 
   return yPosition
 }
-
 
 type WeatherAlert = {
   sender_name: string
@@ -268,8 +402,8 @@ async function renderHeadline({ ctx, ctxRed, today, day, yPosition, LEFT_MARGIN,
   yPosition = 38
   const temperatur = `${Math.round(weather.current.temp)}°`
   const { width: topRightWidth } = ctx.measureText(temperatur)
-  ctx.font = "30pt 'SourceSans'"
-  ctx.fillText(temperatur, RIGHT_MARGIN - topRightWidth, yPosition)
+  ctxRed.font = "30pt 'SourceSans'"
+  ctxRed.fillText(temperatur, RIGHT_MARGIN - topRightWidth, yPosition)
 
   // await renderWeatherIcon({ ctx, iconName: '01d.png', xPosition: RIGHT_MARGIN - topRightWidth - 128 - 16, yPosition: 0, width: 38, height: 38 })
 
