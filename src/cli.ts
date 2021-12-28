@@ -8,6 +8,8 @@ import { readCalendar } from './read-calendar.js'
 import { renderEventsToImage } from './render-calendar.js'
 import { readWeather } from './read-weather.js'
 import { readBatteryLevel } from './read-battery.js'
+import { runCommands } from './commands.js'
+import { saveImageAndCompare } from './image.js' 
 
 const DEFAULT_TOKEN_PATH = path.join(os.homedir(), '.calendar-e-paper', 'access-token.json')
 
@@ -59,33 +61,52 @@ const args = yargs(process.argv.slice(2))
     default: 'en'
   })
   .option('afterRun', {
-    description: 'Command to execute when done (e.g poweroff)',
-    type: 'string'
-  })
-  .option('afterRunDelay', {
-    description: 'Number of seconds to wait after done to run the afterRun command',
-    type: 'number',
-    default: 30
-  })
-  .option('afterRunCondition', {
-    description: 'File '
+    description: 'Commands to execute when done (e.g poweroff). When the command starts with a number followed by an s: (e.g. 20s:/bash my-command.sh) the command will be delayed',
+    array: true,
+    type: 'string',
+    coerce: function(option: string) {
+      const afterRunCommands = []
+
+      for (const command of option) {
+        const secondSplitIndex = command.indexOf('s:')
+        
+        if (secondSplitIndex > 0) {
+          afterRunCommands.push({ delay: parseInt(command.substring(0, secondSplitIndex), 10), command: command.substring(secondSplitIndex + 2) })
+        } else {
+          afterRunCommands.push({ delay: 0, command })
+        }
+      }
+
+      return afterRunCommands
+    }  
   })
   .argv
 
-const events = await readCalendar(args)
-await fs.writeFile('events.json', JSON.stringify(events, null, 2), { encoding: 'utf8' })
-// const events = JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
+// const events = await readCalendar(args)
+// await fs.writeFile('events.json', JSON.stringify(events, null, 2), { encoding: 'utf8' })
+const events = JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
 
-const weather = await readWeather({ apiKey: args.openWeatherApiKey, language: args.language, longitude: args.longitude, latitude: args.latitude })
-await fs.writeFile('weather-report.json', JSON.stringify(weather, null, 2), { encoding: 'utf8' })
-// const weather = JSON.parse(await fs.readFile('weather-report.json', { encoding: 'utf-8' }))
+// const weather = await readWeather({ apiKey: args.openWeatherApiKey, language: args.language, longitude: args.longitude, latitude: args.latitude })
+// await fs.writeFile('weather-report.json', JSON.stringify(weather, null, 2), { encoding: 'utf8' })
+const weather = JSON.parse(await fs.readFile('weather-report.json', { encoding: 'utf-8' }))
 
 //const batteryLevel = await readBatteryLevel()
-const batteryLevel = null;
+const batteryLevel = 80;
 
 const { imageBlack, imageRed } = await renderEventsToImage({ width: args.width, height: args.height, events, weather, batteryLevel })
 
-imageBlack.write('channel-black.png')
-imageRed.write('channel-red.png')
+const BLACK_CHANNEL_PATH = path.resolve('channel-black.png')
+const RED_CHANNEL_PATH = path.resolve('channel-red.png')
 
-// import { CLIENT_ID, CLIENT_SECRET } from '/etc't
+const blackChanged = await saveImageAndCompare(imageBlack, BLACK_CHANNEL_PATH)
+const redChanged = await saveImageAndCompare(imageRed, RED_CHANNEL_PATH)
+
+const anyChange = blackChanged || redChanged
+
+await runCommands(args.afterRun, {
+  BLACK_CHANNEL: BLACK_CHANNEL_PATH,
+  RED_CHANNEL: RED_CHANNEL_PATH,
+  IMAGES_CHANGED: anyChange ? '1':'0',
+})
+
+// import { CLIENT_ID, CLIENT_SECRET } from '/etc'

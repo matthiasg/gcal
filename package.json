@@ -13,7 +13,7 @@
     "build:cli": "esbuild --bundle --target=node16 --format=esm --external:pureimage --external:pino --external:jimp --external:linefold --outfile=lib/cli.js --platform=node --sourcemap src/cli.ts ",
     "build:cli:watch": "esbuild --bundle --target=node16 --format=esm --external:pureimage --external:pino --external:jimp --external:linefold --outfile=lib/cli.js --platform=node --sourcemap src/cli.ts --watch",
     "dev": "node bin/render-calendar-to-e-paper.js --config secret-test-options.json",
-    "dev:watch": "nodemon -w lib --exec \"node bin/render-calendar-to-e-paper.js --config secret-test-options.json\"",
+    "dev:watch": "nodemon -w lib -w secret-test-options.json --exec \"node bin/render-calendar-to-e-paper.js --config secret-test-options.json\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {

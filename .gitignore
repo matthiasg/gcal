@@ -118,3 +118,6 @@ lib
 
 # Apple
 .DS_Store
+
+# Images
+channel-*.png

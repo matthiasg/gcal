@@ -282,7 +282,7 @@ function readEvents(events: Event[], interval: Interval): Event[] {
     // }
 
     try {
-      log.trace({ event }, 'Testing event "%s"', event.summary)
+      // log.trace({ event }, 'Testing event "%s"', event.summary)
 
       const start = DateTime.fromISO(event.start.date ?? event.start.dateTime)
       const end = DateTime.fromISO(event.end.date ?? event.start.dateTime)
@@ -431,7 +431,7 @@ async function exportAsChannels(image: any, imageRed: any) {
     })
   })
 
-  jimpImage.posterize(2)
+  // jimpImage.posterize(2)
 
   const jimpImageRed = await new Promise<any>((resolve, reject) => {
     Jimp.read('calendar-red.png', (err, image) => {
@@ -444,7 +444,7 @@ async function exportAsChannels(image: any, imageRed: any) {
     })
   })
   
-  jimpImageRed.posterize(2)
+  // jimpImageRed.posterize(2)
 
   return { imageBlack: jimpImage, imageRed: jimpImageRed }
 }
