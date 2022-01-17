@@ -24,23 +24,28 @@ function execCommand(commandLine: string, variables: EnvironmentVariables): Prom
   return new Promise((resolve, reject) => {
     log.trace('Executing command %s', commandLine)
     
-    exec(commandLine, { env, timeout: 600, cwd: process.cwd() }, (error: any, stdout: string, stderr: string) => {
+    exec(commandLine, { env, timeout: 5 * 60 * 1_000, cwd: process.cwd() }, (error: any, stdout: string, stderr: string) => {
       if (error) {
         log.error('Error executing command %s', error.toString())
         reject(error)
       } else {
-        const lines = stdout.split('\n').map(l => l.trim())
-        if (lines[lines.length - 1] === '') {
-          lines.pop()
-        }
-
-        lines.forEach(l => log.trace('Command stdout: %s', l))
+        dumpOutput('stdout', stdout)
+        dumpOutput('stderr', stderr)
 
         log.info('Executed command %s', commandLine)
         resolve(stdout)
       }
     })
   })
+}
+
+function dumpOutput(name: string, output: string) {
+  const lines = output.split('\n').map(l => l.trim())
+  if (lines[lines.length - 1] === '') {
+    lines.pop()
+  }
+
+  lines.forEach(l => log.trace('Command %s: %s', name, l))
 }
 
 function sleep(ms: number) {

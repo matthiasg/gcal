@@ -60,6 +60,14 @@ const args = yargs(process.argv.slice(2))
     type: 'string',
     default: 'en'
   })
+  .option('simulate', {
+    description: 'Re-use previously stored data files',
+    type: 'bool'
+  })
+  .option('drawBorder', {
+    description: 'Draw border around area',
+    type: 'bool'
+  })
   .option('afterRun', {
     description: 'Commands to execute when done (e.g poweroff). When the command starts with a number followed by an s: (e.g. 20s:/bash my-command.sh) the command will be delayed',
     array: true,
@@ -82,18 +90,23 @@ const args = yargs(process.argv.slice(2))
   })
   .argv
 
-// const events = await readCalendar(args)
-// await fs.writeFile('events.json', JSON.stringify(events, null, 2), { encoding: 'utf8' })
-const events = JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
+const events = args.simulate
+  ? JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
+  : await readCalendar(args)
 
-// const weather = await readWeather({ apiKey: args.openWeatherApiKey, language: args.language, longitude: args.longitude, latitude: args.latitude })
-// await fs.writeFile('weather-report.json', JSON.stringify(weather, null, 2), { encoding: 'utf8' })
-const weather = JSON.parse(await fs.readFile('weather-report.json', { encoding: 'utf-8' }))
+!args.simulate && await fs.writeFile('events.json', JSON.stringify(events, null, 2), { encoding: 'utf8' })
+// const events = JSON.parse(await fs.readFile('events.json', { encoding: 'utf-8' }))
 
-//const batteryLevel = await readBatteryLevel()
+const weather = args.simulate
+  ? JSON.parse(await fs.readFile('weather-report.json', { encoding: 'utf-8' }))
+  : await readWeather({ apiKey: args.openWeatherApiKey, language: args.language, longitude: args.longitude, latitude: args.latitude })
+
+!args.simulate && await fs.writeFile('weather-report.json', JSON.stringify(weather, null, 2), { encoding: 'utf8' })
+
+// const batteryLevel = await readBatteryLevel()
 const batteryLevel = 80;
 
-const { imageBlack, imageRed } = await renderEventsToImage({ width: args.width, height: args.height, events, weather, batteryLevel })
+const { imageBlack, imageRed } = await renderEventsToImage({ width: args.width, height: args.height, events, weather, batteryLevel, drawBorder: args.drawBorder })
 
 const BLACK_CHANNEL_PATH = path.resolve('channel-black.png')
 const RED_CHANNEL_PATH = path.resolve('channel-red.png')

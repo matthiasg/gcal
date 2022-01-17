@@ -14,13 +14,20 @@
     "build:cli:watch": "esbuild --bundle --target=node16 --format=esm --external:pureimage --external:pino --external:jimp --external:linefold --outfile=lib/cli.js --platform=node --sourcemap src/cli.ts --watch",
     "dev": "node bin/render-calendar-to-e-paper.js --config secret-test-options.json",
     "dev:watch": "nodemon -w lib -w secret-test-options.json --exec \"node bin/render-calendar-to-e-paper.js --config secret-test-options.json\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy": "node ~/Development/aeppic/services/service/bin/pack.js",
+    "simple-deploy": "ssh pi@192.168.86.65 'rm -rf ~/calendar-simple-deploy && mkdir ~/calendar-simple-deploy' && scp -r bin lib pi@192.168.86.65:~/calendar-simple-deploy"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/matthiasg/gcal.git"
   },
-  "author": "",
+  "files": [
+    "bin",
+    "lib",
+    "data"
+  ],
+  "author": "Matthias Goetzke",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/matthiasg/gcal/issues"

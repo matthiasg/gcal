@@ -7,14 +7,16 @@ export async function readBatteryLevel(): Promise<number> {
   // echo "get battery" | nc -q 0 127.0.0.1 8423
   try {
     const socket = await connectToBattery()
-    const responseLine = readNextLine(socket)
+    const pendingResponse = readNextLine(socket)
 
     socket.write('get battery\n', 'utf-8');
 
-    const response = await responseLine
+    const response = await pendingResponse
     log.info('Battery response %s', response)
 
-    return null
+    // e.g battery: 6.6470327
+    const [,level] = response.split(':').map(l => l.trim())
+    return parseFloat(level)
   } catch (error) {
     log.warn('Could not read battery level', error.toString())
     return null
